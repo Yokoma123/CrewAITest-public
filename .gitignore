@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Runtime data and generated artifacts
+crewAIWithRag/data/*.db
+crewAIWithRag/data/uploads/*
+!crewAIWithRag/data/uploads/.gitkeep
+crewAIWithRag/data/exports/*
+!crewAIWithRag/data/exports/.gitkeep
+*.log
+
+# Build artifacts
+dist/
+build/
+*.spec
+*.zip
+*.exe
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

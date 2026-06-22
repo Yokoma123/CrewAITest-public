@@ -1,0 +1,25 @@
+code_task:
+  description: >
+    你将根据用户提供的软件开发需求进行需求拆解，并优先使用python语言生成完整代码。需求如下：
+    {game}
+  expected_output: >
+    你的输出必须包含完整代码。如果需要多个文件，请用清晰的文件名标题区分，并保证代码可复制运行。
+  agent: senior_engineer_agent
+
+review_task:
+  description: >
+    你会对上一位工程师根据以下需求生成的代码进行审查和修复：
+    {game}
+    请检查逻辑错误、语法错误、缺失导入、变量声明、括号不匹配、安全漏洞、异常处理和边界条件。
+  expected_output: >
+    输出修复后的完整代码，并简要说明修复了哪些问题。
+  agent: qa_engineer_agent
+
+evaluate_task:
+  description: >
+    你会对最终代码进行交付检查，需求如下：
+    {game}
+    请确认代码是否满足需求、是否可运行、是否需要额外依赖或运行命令，并给出最终交付版本。
+  expected_output: >
+    输出最终完整代码、运行方法、依赖说明和必要的注意事项。
+  agent: chief_qa_engineer_agent
