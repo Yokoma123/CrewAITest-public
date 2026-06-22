@@ -308,6 +308,10 @@ async def index():
       gap: 12px;
       align-items: start;
     }
+    #detail-page.full-workspace .layout { grid-template-columns: 1fr; }
+    #detail-page.full-workspace #student-list-section { display: none; }
+    #detail-page.full-workspace #workspace-section { min-width: 0; }
+    #detail-page.full-workspace .tabs { display: none; }
     .page { display: none; }
     .page.active { display: block; animation: pageIn 260ms ease both; }
     .home-hero {
@@ -418,6 +422,7 @@ async def index():
     .tabs { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
     .tab { transition: transform 150ms ease, background 150ms ease, color 150ms ease, box-shadow 150ms ease; }
     .tab.active { background: var(--text); color: #fff; border-color: var(--text); box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12); }
+    .tab:disabled { cursor: not-allowed; opacity: 0.45; transform: none; box-shadow: none; }
     .panel { display: none; }
     .panel.active { display: block; animation: pageIn 220ms ease both; }
     .split { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -534,7 +539,7 @@ async def index():
       </div>
 
       <div class="layout">
-      <section>
+      <section id="student-list-section">
         <h2>学生列表</h2>
         <div class="actions">
           <select id="batch-field" style="max-width:180px;">
@@ -585,7 +590,7 @@ async def index():
         </div>
       </section>
 
-      <section>
+      <section id="workspace-section">
         <div class="tabs">
           <button class="tab active" data-panel="detail-panel" type="button">学生详情</button>
           <button class="tab" data-panel="records-panel" type="button">奖惩记录</button>
@@ -762,6 +767,8 @@ async def index():
 
     const message = document.getElementById("message");
     const body = document.getElementById("students-body");
+    const studentRequiredPanels = new Set(["detail-panel", "records-panel", "activities-panel"]);
+    const fullWorkspacePanels = new Set(["review-panel", "fields-panel"]);
 
     function escapeHtml(value) {
       return String(value ?? "").replace(/[&<>"']/g, (char) => ({
@@ -803,6 +810,38 @@ async def index():
         select.appendChild(option);
       });
       if (current) select.value = current;
+    }
+
+    function setStudentScopedControls() {
+      const hasStudent = Boolean(state.selectedId);
+      document.querySelectorAll(".tab").forEach((tab) => {
+        if (studentRequiredPanels.has(tab.dataset.panel)) tab.disabled = !hasStudent;
+      });
+      ["student-form", "record-form", "activity-form"].forEach((formId) => {
+        const form = document.getElementById(formId);
+        if (!form) return;
+        const disabled = formId !== "student-form" && !hasStudent;
+        form.querySelectorAll("input, select, textarea, button").forEach((control) => {
+          if (control.id === "new-student") return;
+          control.disabled = disabled;
+        });
+      });
+    }
+
+    function setWorkspaceMode(panelId) {
+      document.getElementById("detail-page").classList.toggle("full-workspace", fullWorkspacePanels.has(panelId));
+    }
+
+    function activatePanel(panelId, options = {}) {
+      if (studentRequiredPanels.has(panelId) && !state.selectedId && !options.allowEmptyStudent) {
+        showMessage("请先在学生列表中选择一个学生，再查看该学生的详情、奖惩或日常活动。", true);
+        return false;
+      }
+      document.querySelectorAll(".tab").forEach((item) => item.classList.toggle("active", item.dataset.panel === panelId));
+      document.querySelectorAll(".panel").forEach((item) => item.classList.toggle("active", item.id === panelId));
+      setWorkspaceMode(panelId);
+      setStudentScopedControls();
+      return true;
     }
 
     function optionHtml(field, selected) {
@@ -995,6 +1034,7 @@ async def index():
       if (state.selectedId && state.students.some((item) => item.id === state.selectedId)) {
         selectStudent(state.selectedId);
       }
+      setStudentScopedControls();
     }
 
     function renderStudents() {
@@ -1048,6 +1088,7 @@ async def index():
       renderActivities([], 0);
       document.getElementById("missing-reminder").innerHTML = "";
       renderStudents();
+      setStudentScopedControls();
     }
 
     async function loadStudentDetail(id) {
@@ -1065,24 +1106,52 @@ async def index():
       state.selectedId = id;
       fillStudentDetail(currentStudent);
       renderStudents();
+      setStudentScopedControls();
       loadStudentDetail(id).catch((error) => showMessage(error.message, true));
+    }
+
+    function hasActiveFilters() {
+      const params = getFilters();
+      params.delete("query");
+      return [...params.keys()].length > 0;
+    }
+
+    function studentMatchesCurrentFilters(student) {
+      const filters = Object.fromEntries(getFilters().entries());
+      delete filters.query;
+      for (const key of ["class_name", "advisor_name", "dorm_location", "gender", "political_status", "tripartite_status", "destination_type"]) {
+        if (filters[key] && String(student[key] || "") !== filters[key]) return false;
+      }
+      if (filters.missing_phone === "true" && student.phone) return false;
+      if (filters.has_records === "true" && Number(student.record_count || 0) <= 0) return false;
+      return true;
     }
 
     async function runBatchSearch() {
       const text = document.getElementById("batch-search-input").value.trim();
-      if (!text) return showMessage("请先输入要查找的姓名、学号或电话", true);
+      if (!text) {
+        if (!hasActiveFilters() && !document.getElementById("search").value.trim()) {
+          return showMessage("请先输入名单，或先选择班级、导师、寝室等筛选条件", true);
+        }
+        await loadStudents();
+        document.getElementById("batch-search-summary").textContent = `已按当前筛选条件找到 ${state.students.length} 人`;
+        document.getElementById("batch-search-missing").innerHTML = '<span class="pill">筛选完成</span>';
+        showMessage(`筛选完成：找到 ${state.students.length} 人`);
+        return;
+      }
       const result = await requestJson("/api/students/batch-search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text })
       });
-      state.batchStudents = result.students || [];
+      const rawStudents = result.students || [];
+      state.batchStudents = hasActiveFilters() ? rawStudents.filter(studentMatchesCurrentFilters) : rawStudents;
       state.batchMode = true;
       state.checked.clear();
       document.getElementById("clear-batch-search").hidden = false;
       document.getElementById("use-batch-results").hidden = !state.batchStudents.length;
       document.getElementById("batch-search-summary").textContent =
-        `已解析 ${result.terms.length} 项，找到 ${state.batchStudents.length} 人，未找到 ${result.missing.length} 项`;
+        `已解析 ${result.terms.length} 项，找到 ${state.batchStudents.length} 人，未找到 ${result.missing.length} 项${hasActiveFilters() ? "，并已叠加当前筛选条件" : ""}`;
       document.getElementById("batch-search-missing").innerHTML = result.missing.length
         ? `<span class="hint">未找到：</span>${result.missing.map((item) => `<span class="pill warn">${escapeHtml(item)}</span>`).join("")}`
         : '<span class="pill">全部找到</span>';
@@ -1098,6 +1167,7 @@ async def index():
       document.getElementById("batch-search-summary").textContent = "支持换行、逗号、顿号、分号和空格分隔";
       document.getElementById("batch-search-missing").innerHTML = "";
       renderStudents();
+      setStudentScopedControls();
     }
 
     function fillStudentDetail(student) {
@@ -1110,6 +1180,7 @@ async def index():
       renderRecords(student.records || []);
       renderActivities(student.activities || [], student.activity_score || 0);
       renderMissingReminder(student);
+      setStudentScopedControls();
     }
 
     function renderMissingReminder(student) {
@@ -1282,8 +1353,7 @@ async def index():
       if (item) item.remove();
       state.changeTotal = Math.max(0, state.changeTotal - 1);
       document.getElementById("change-page-info").textContent = `待核对 ${state.changeTotal} 条`;
-      loadBatches().catch(() => {});
-      loadStats().catch(() => {});
+      await Promise.all([loadBatches(), loadStats(), loadOptions(), loadStudents()]);
       if (!document.querySelector("#changes .change")) await loadChanges();
     }
 
@@ -1317,7 +1387,7 @@ async def index():
       } while (remaining > 0);
       showMessage(scope === "page" ? `当前页已处理 ${processedAll} 条` : `当前批次已处理完成，共处理 ${processedAll} 条`);
       state.changeOffset = 0;
-      await Promise.all([loadBatches(), loadStats(), loadChanges()]);
+      await Promise.all([loadBatches(), loadStats(), loadOptions(), loadStudents(), loadChanges()]);
       setTimeout(() => { progress.hidden = true; bar.style.width = "0%"; }, 700);
     }
 
@@ -1332,6 +1402,7 @@ async def index():
         const item = document.createElement("div");
         item.className = "dynamic-row";
         item.innerHTML = `
+          <h3>${escapeHtml(field.label)}</h3>
           <div class="form-grid">
             <label>字段名<input class="field-label" value="${escapeHtml(field.label)}"></label>
             <label>类型
@@ -1365,23 +1436,30 @@ async def index():
 
     document.querySelectorAll(".tab").forEach((tab) => {
       tab.addEventListener("click", () => {
-        document.querySelectorAll(".tab").forEach((item) => item.classList.remove("active"));
-        document.querySelectorAll(".panel").forEach((item) => item.classList.remove("active"));
-        tab.classList.add("active");
-        document.getElementById(tab.dataset.panel).classList.add("active");
+        if (tab.disabled) {
+          showMessage("请先选择学生后再进入该功能", true);
+          return;
+        }
+        activatePanel(tab.dataset.panel);
       });
     });
 
     function activatePage(pageId, panelId = null) {
       document.querySelectorAll(".page").forEach((page) => page.classList.remove("active"));
       document.getElementById(pageId).classList.add("active");
-      document.querySelectorAll(".side-link").forEach((item) => item.classList.remove("active"));
-      const activeLink = [...document.querySelectorAll(".side-link")].find((item) => item.dataset.targetPage === pageId && (!panelId || item.dataset.targetPanel === panelId));
-      if (activeLink) activeLink.classList.add("active");
+      let activePanelId = panelId;
       if (panelId) {
-        document.querySelectorAll(".tab").forEach((item) => item.classList.toggle("active", item.dataset.panel === panelId));
-        document.querySelectorAll(".panel").forEach((item) => item.classList.toggle("active", item.id === panelId));
+        if (!activatePanel(panelId, { allowEmptyStudent: panelId === "detail-panel" })) {
+          activePanelId = "detail-panel";
+          activatePanel(activePanelId, { allowEmptyStudent: true });
+        }
+      } else {
+        setWorkspaceMode(null);
+        setStudentScopedControls();
       }
+      document.querySelectorAll(".side-link").forEach((item) => item.classList.remove("active"));
+      const activeLink = [...document.querySelectorAll(".side-link")].find((item) => item.dataset.targetPage === pageId && (!activePanelId || item.dataset.targetPanel === activePanelId));
+      if (activeLink) activeLink.classList.add("active");
     }
 
     document.querySelectorAll(".side-link").forEach((button) => {
@@ -1598,6 +1676,7 @@ async def index():
         showMessage(`导入完成：新增 ${result.new_students} 人，自动补充 ${result.updated} 人，跳过 ${result.skipped} 行。${newFields.length ? "发现新字段：" + newFields.join("、") + "。" : ""}${tail}`);
         await refreshAll();
         if (result.batch_id) {
+          activatePage("detail-page", "review-panel");
           document.getElementById("batch-select").value = result.batch_id;
           await loadChanges();
         }

@@ -82,6 +82,21 @@ def run_tests():
     assert student_store.get_dynamic_fields()[0]["field_key"] == "extra_qq号"
     assert student_store.get_student(student["id"])["extra_values"]["extra_qq号"] == "123456"
 
+    party_csv = os.path.join(temp_dir, "party.csv")
+    long_header = "党支部党员大会接收预备党员时间"
+    write_csv(
+        party_csv,
+        ["姓名", "学号", long_header],
+        [{"姓名": "李四", "学号": "20240002", long_header: "2026-06-22"}],
+    )
+    result = import_service.import_students(party_csv, "党员发展补充表.csv")
+    changes = student_store.list_import_changes(result["batch_id"])
+    party_change = [change for change in changes if change["field_label"] == long_header][0]
+    student_store.apply_import_change(party_change["id"], "apply")
+    dynamic_fields = {field["label"]: field["field_key"] for field in student_store.get_dynamic_fields()}
+    assert long_header in dynamic_fields
+    assert student_store.get_student(student["id"])["extra_values"][dynamic_fields[long_header]] == "2026-06-22"
+
     mismatch_csv = os.path.join(temp_dir, "mismatch.csv")
     write_csv(
         mismatch_csv,
