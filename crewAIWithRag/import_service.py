@@ -94,12 +94,48 @@ def read_excel(path: str) -> List[Dict[str, Any]]:
     return result
 
 
+def read_xls(path: str) -> List[Dict[str, Any]]:
+    try:
+        import xlrd
+    except ImportError as exc:
+        raise ValueError("读取老版 .xls 文件需要安装 xlrd，或请先另存为 .xlsx 后再导入") from exc
+
+    try:
+        workbook = xlrd.open_workbook(path)
+    except Exception as exc:
+        raise ValueError(f"无法读取 .xls 文件，请确认文件未损坏: {exc}") from exc
+
+    if not workbook.nsheets:
+        return []
+    sheet = workbook.sheet_by_index(0)
+    if sheet.nrows == 0:
+        return []
+    headers = [str(sheet.cell_value(0, col) or "").strip() for col in range(sheet.ncols)]
+    result = []
+    for row_index in range(1, sheet.nrows):
+        item = {}
+        for col_index, header in enumerate(headers):
+            if not header:
+                continue
+            cell = sheet.cell(row_index, col_index)
+            value = cell.value
+            if cell.ctype == xlrd.XL_CELL_NUMBER and float(value).is_integer():
+                value = str(int(value))
+            else:
+                value = "" if value is None else str(value).strip()
+            item[header] = value
+        result.append(item)
+    return result
+
+
 def read_rows(path: str) -> List[Dict[str, Any]]:
     suffix = os.path.splitext(path)[1].lower()
     if suffix == ".csv":
         return read_csv(path)
-    if suffix in (".xlsx", ".xls"):
+    if suffix == ".xlsx":
         return read_excel(path)
+    if suffix == ".xls":
+        return read_xls(path)
     raise ValueError("暂只支持 CSV、XLSX、XLS 文件")
 
 

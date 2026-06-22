@@ -34,6 +34,7 @@ PYINSTALLER_HIDDEN_IMPORTS = [
     "student_store",
     "import_service",
     "export_service",
+    "xlrd",
     "uvicorn.logging",
     "uvicorn.loops",
     "uvicorn.loops.auto",
@@ -85,9 +86,14 @@ def write_start_scripts(portable_dir: Path) -> None:
     )
 
 
-def zip_portable(portable_dir: Path, zip_path: Path) -> None:
+def zip_portable(portable_dir: Path, zip_path: Path) -> Path:
     if zip_path.exists():
-        zip_path.unlink()
+        try:
+            zip_path.unlink()
+        except PermissionError:
+            zip_path = zip_path.with_name(f"{zip_path.stem}-latest{zip_path.suffix}")
+            if zip_path.exists():
+                zip_path.unlink()
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as archive:
         for path in portable_dir.rglob("*"):
             arcname = path.relative_to(DIST_ROOT)
@@ -99,6 +105,7 @@ def zip_portable(portable_dir: Path, zip_path: Path) -> None:
             else:
                 with path.open("rb") as source:
                     archive.writestr(info, source.read(), zipfile.ZIP_DEFLATED)
+    return zip_path
 
 
 def run_pyinstaller(python: str) -> None:
@@ -163,23 +170,23 @@ def prepare_portable_tree(portable_dir: Path, app_dir: Path) -> None:
 def build(no_exe: bool, python: str) -> None:
     prepare_portable_tree(SOURCE_PORTABLE_DIR, SOURCE_APP_DIR)
     write_start_scripts(SOURCE_PORTABLE_DIR)
-    zip_portable(SOURCE_PORTABLE_DIR, SOURCE_ZIP_PATH)
+    source_zip_path = zip_portable(SOURCE_PORTABLE_DIR, SOURCE_ZIP_PATH)
 
     prepare_portable_tree(PORTABLE_DIR, APP_DIR)
     if not no_exe:
         run_pyinstaller(python)
 
     write_start_scripts(PORTABLE_DIR)
-    zip_portable(PORTABLE_DIR, ZIP_PATH)
+    zip_path = zip_portable(PORTABLE_DIR, ZIP_PATH)
 
     print("便携版已生成:")
     print(PORTABLE_DIR)
     print("压缩包:")
-    print(ZIP_PATH)
+    print(zip_path)
     print("跨平台源码便携版:")
     print(SOURCE_PORTABLE_DIR)
     print("跨平台源码压缩包:")
-    print(SOURCE_ZIP_PATH)
+    print(source_zip_path)
     print("Windows 双击 start_student_info_system.bat；macOS 安装依赖后双击 start_student_info_system.command。")
 
 

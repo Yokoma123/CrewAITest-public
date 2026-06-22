@@ -92,6 +92,25 @@ def run_tests():
     assert result["conflicts"] == 1
     assert student_store.get_student(student["id"])["advisor_name"] == "王老师"
 
+    try:
+        import xlwt
+    except ImportError:
+        xlwt = None
+    if xlwt:
+        legacy_xls = os.path.join(temp_dir, "legacy.xls")
+        workbook = xlwt.Workbook()
+        sheet = workbook.add_sheet("学生")
+        headers = ["姓名", "学号", "班级", "联系电话"]
+        values = ["王五", "20240005", "计科二班", "13700000000"]
+        for col, header in enumerate(headers):
+            sheet.write(0, col, header)
+        for col, value in enumerate(values):
+            sheet.write(1, col, value)
+        workbook.save(legacy_xls)
+        result = import_service.import_students(legacy_xls, "老版表.xls")
+        assert result["new_students"] == 1
+        assert student_store.list_students("20240005")[0]["name"] == "王五"
+
     print("import_service tests passed")
 
 

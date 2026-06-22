@@ -4,6 +4,8 @@
 
 Windows 便携版适合复制到 U 盘、移动硬盘或其他 Windows 电脑上使用。数据保存在便携版目录里的 `app/data/students.db`，导入文件和导出 Excel 也在 `app/data` 下。
 
+这个版本已经内置 Python 运行时，目标 Windows 电脑不需要提前安装 Python。
+
 ### 生成便携版
 
 在 PowerShell 中运行：
@@ -58,6 +60,25 @@ chmod +x run_portable.command ../start_student_info_system.command
 也可以在 macOS 中双击 `start_student_info_system.command` 启动。
 
 注意：macOS 的原生 `.app` 或 `.dmg` 需要在 macOS 机器上构建；Windows 无法直接生成可在 macOS 原生运行的二进制安装包。
+
+## macOS 免安装版
+
+如果需要 macOS 上也完全不依赖目标电脑 Python，需要在一台 macOS 电脑上运行：
+
+```bash
+cd crewAIWithRag
+chmod +x build_macos_portable.command
+./build_macos_portable.command
+```
+
+生成结果：
+
+```text
+dist/StudentInfoSystemMacPortable
+dist/StudentInfoSystemMacPortable.zip
+```
+
+这个 zip 会内置 macOS 可执行程序和 Python 运行时，复制到其他同架构 macOS 电脑后可直接启动。
 
 ## 数据备份
 
