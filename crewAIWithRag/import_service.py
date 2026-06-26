@@ -9,7 +9,7 @@ import student_store
 FIELD_ALIASES = {
     "name": ["姓名", "学生姓名", "名字", "name"],
     "class_name": ["班级", "所在班级", "行政班", "class", "class_name"],
-    "student_id": ["学号", "学生学号", "student_id", "studentid", "id"],
+    "student_id": ["学号", "学号（职工号）", "学号(职工号)", "学生学号", "职工号", "student_id", "studentid", "id"],
     "phone": ["联系电话", "电话", "移动电话", "手机号", "手机号码", "联系方式", "phone"],
     "dorm_location": ["寝室位置", "宿舍位置", "所在寝室楼", "所在宿舍楼", "寝室楼", "宿舍楼", "公寓", "dorm_location"],
     "dorm_room": ["寝室号", "宿舍号", "房间号", "寝室", "宿舍", "dorm_room"],
@@ -30,7 +30,40 @@ IGNORED_HEADERS = {"序号", "编号", "证件号码", "身份证号"}
 
 
 def normalize_header(value: Any) -> str:
-    return str(value or "").strip().lower().replace(" ", "").replace("_", "")
+    text = str(value or "").strip().lower()
+    text = text.replace("（", "(").replace("）", ")")
+    return re.sub(r"[\s_()（）【】\[\]{}<>《》:：,，、/\\\-]+", "", text)
+
+
+def header_matches(candidate: str, aliases: List[str]) -> bool:
+    normalized_candidate = normalize_header(candidate)
+    if not normalized_candidate:
+        return False
+    for alias in aliases:
+        normalized_alias = normalize_header(alias)
+        if not normalized_alias:
+            continue
+        if normalized_candidate == normalized_alias:
+            return True
+        if len(normalized_alias) >= 3 and normalized_alias in normalized_candidate:
+            return True
+        if len(normalized_candidate) >= 3 and normalized_candidate in normalized_alias:
+            return True
+    return False
+
+
+def header_exact_matches(candidate: str, aliases: List[str]) -> bool:
+    normalized_candidate = normalize_header(candidate)
+    return any(normalized_candidate == normalize_header(alias) for alias in aliases if normalize_header(alias))
+
+
+def find_matching_header(headers: List[str], aliases: List[str], used_headers: set, exact_only: bool = False) -> str:
+    for header in headers:
+        if header in used_headers:
+            continue
+        if header_exact_matches(header, aliases) if exact_only else header_matches(header, aliases):
+            return header
+    return ""
 
 
 def make_dynamic_key(header: str) -> str:
@@ -39,16 +72,24 @@ def make_dynamic_key(header: str) -> str:
 
 
 def build_header_map(headers: List[str]) -> Tuple[Dict[str, str], Dict[str, str]]:
-    normalized_headers = {normalize_header(header): header for header in headers if str(header or "").strip()}
     header_map = {}
     used_headers = set()
-    for field, aliases in FIELD_ALIASES.items():
-        for alias in aliases:
-            original = normalized_headers.get(normalize_header(alias))
-            if original is not None:
-                header_map[field] = original
-                used_headers.add(original)
-                break
+    field_aliases = [
+        (field, aliases + [student_store.FIELD_LABELS.get(field, field)])
+        for field, aliases in FIELD_ALIASES.items()
+    ]
+    for field, aliases in field_aliases:
+        original = find_matching_header(headers, aliases, used_headers, exact_only=True)
+        if original:
+            header_map[field] = original
+            used_headers.add(original)
+    for field, aliases in field_aliases:
+        if field in header_map:
+            continue
+        original = find_matching_header(headers, aliases, used_headers)
+        if original:
+            header_map[field] = original
+            used_headers.add(original)
 
     dynamic_headers = {}
     for header in headers:

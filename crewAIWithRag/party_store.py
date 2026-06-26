@@ -18,78 +18,151 @@ IDENTITY_TYPES = {
     "member": "党员",
 }
 
-COMMON_FIELDS = ["name", "class_name", "student_id", "gender", "phone", "branch_name", "note"]
+COMMON_FIELDS = [
+    "sequence_number",
+    "name",
+    "student_id",
+    "gender",
+    "ethnicity",
+    "education",
+    "birth_date",
+    "age",
+    "work_study_unit",
+    "id_number",
+    "work_start_date",
+    "position_title",
+    "application_date",
+    "branch_name",
+    "note",
+]
 
 CATEGORY_FIELDS = {
-    "activist": ["applicant_date", "activist_date", "training_status", "recommender"],
-    "probationary": ["activist_date", "pre_member_date", "probation_start_date", "probation_end_date", "introducer"],
-    "member": ["member_date", "regularization_date", "party_position", "dues_status"],
+    "activist": ["talk_date", "activist_confirm_date", "committee_record_date", "activist_training_date", "cultivator"],
+    "probationary": [
+        "activist_confirm_date",
+        "activist_training_date",
+        "development_target_date",
+        "development_training_date",
+        "pre_member_accept_date",
+        "superior_talk_date",
+        "superior_talker",
+        "general_branch_review_date",
+        "superior_party_approval_date",
+        "volunteer_book_number",
+    ],
+    "member": [
+        "personnel_category",
+        "activist_confirm_date",
+        "activist_training_date",
+        "development_target_date",
+        "development_training_date",
+        "pre_member_accept_date",
+        "superior_party_approval_date",
+        "probation_discussion_date",
+        "regularization_approval_date",
+    ],
 }
 
 ALL_FIELDS = [
     "identity_type",
+    "sequence_number",
     "name",
-    "class_name",
     "student_id",
     "gender",
-    "phone",
+    "ethnicity",
+    "education",
+    "birth_date",
+    "age",
+    "work_study_unit",
+    "id_number",
+    "work_start_date",
+    "position_title",
+    "application_date",
+    "talk_date",
+    "activist_confirm_date",
+    "committee_record_date",
+    "activist_training_date",
+    "cultivator",
+    "development_target_date",
+    "development_training_date",
+    "pre_member_accept_date",
+    "superior_talk_date",
+    "superior_talker",
+    "general_branch_review_date",
+    "superior_party_approval_date",
+    "volunteer_book_number",
+    "personnel_category",
+    "probation_discussion_date",
+    "regularization_approval_date",
     "branch_name",
-    "applicant_date",
-    "activist_date",
-    "training_status",
-    "recommender",
-    "pre_member_date",
-    "probation_start_date",
-    "probation_end_date",
-    "introducer",
-    "member_date",
-    "regularization_date",
-    "party_position",
-    "dues_status",
     "note",
 ]
 
 FIELD_LABELS = {
+    "sequence_number": "序号",
     "name": "姓名",
-    "class_name": "班级",
-    "student_id": "学号",
+    "student_id": "学号（职工号）",
     "gender": "性别",
-    "phone": "联系电话",
-    "branch_name": "党支部",
-    "applicant_date": "递交入党申请书时间",
-    "activist_date": "确定积极分子时间",
-    "training_status": "培养考察情况",
-    "recommender": "培养联系人",
-    "pre_member_date": "接收预备党员时间",
-    "probation_start_date": "预备期开始时间",
-    "probation_end_date": "预备期结束时间",
-    "introducer": "入党介绍人",
-    "member_date": "成为党员时间",
-    "regularization_date": "转正时间",
-    "party_position": "党内职务",
-    "dues_status": "党费缴纳情况",
+    "ethnicity": "民族",
+    "education": "文化程度",
+    "birth_date": "出生日期",
+    "age": "年龄",
+    "work_study_unit": "工作或学习单位",
+    "id_number": "身份证号",
+    "work_start_date": "参加工作时间（入学时间）",
+    "position_title": "职务职称",
+    "application_date": "申请入党时间",
+    "talk_date": "派入谈话时间",
+    "activist_confirm_date": "党支部研究确定入党积极分子时间",
+    "committee_record_date": "党委备案时间",
+    "activist_training_date": "入党积极分子培训时间",
+    "cultivator": "培养联系人",
+    "development_target_date": "列为发展对象时间",
+    "development_training_date": "发展对象培训时间",
+    "pre_member_accept_date": "党支部党员大会接收预备党员时间",
+    "superior_talk_date": "上级党组织谈话时间",
+    "superior_talker": "上级党组织谈话人",
+    "general_branch_review_date": "党总支审议时间",
+    "superior_party_approval_date": "上级党委审批时间",
+    "volunteer_book_number": "志愿书编号",
+    "personnel_category": "人员类别",
+    "probation_discussion_date": "预备期支部讨论时间",
+    "regularization_approval_date": "转正上级党委审批时间",
+    "branch_name": "所在党支部",
     "note": "备注",
 }
 
 FIELD_ALIASES = {
+    "sequence_number": ["序号", "编号", "序"],
     "name": ["姓名", "学生姓名", "名字", "name"],
-    "class_name": ["班级", "所在班级", "行政班", "class_name"],
-    "student_id": ["学号", "学生学号", "student_id", "id"],
+    "student_id": ["学号", "学号（职工号）", "学号(职工号)", "学生学号", "职工号", "student_id", "studentid"],
     "gender": ["性别", "gender"],
-    "phone": ["联系电话", "电话", "手机号", "联系方式", "phone"],
-    "branch_name": ["党支部", "所在党支部", "支部", "党组织", "branch_name"],
-    "applicant_date": ["递交入党申请书时间", "申请入党时间", "入党申请时间", "申请书时间"],
-    "activist_date": ["确定积极分子时间", "积极分子时间", "列为积极分子时间"],
-    "training_status": ["培养考察情况", "培养情况", "考察情况", "培训情况"],
-    "recommender": ["培养联系人", "联系人", "推荐人"],
-    "pre_member_date": ["接收预备党员时间", "党支部党员大会接收预备党员时间", "成为预备党员时间"],
-    "probation_start_date": ["预备期开始时间", "预备期起始时间"],
-    "probation_end_date": ["预备期结束时间", "预备期截止时间"],
-    "introducer": ["入党介绍人", "介绍人"],
-    "member_date": ["成为党员时间", "入党时间", "党员时间"],
-    "regularization_date": ["转正时间", "按期转正时间"],
-    "party_position": ["党内职务", "职务"],
-    "dues_status": ["党费缴纳情况", "党费情况"],
+    "ethnicity": ["民族"],
+    "education": ["文化程度", "文化程度（指已取得学历）", "文化程度(指已取得学历)", "学历"],
+    "birth_date": ["出生日期", "出生时间"],
+    "age": ["年龄"],
+    "work_study_unit": ["工作或学习单位", "工作或学习单位名称", "单位", "所在单位"],
+    "id_number": ["身份证号", "身份证号码", "身份号码", "身份证"],
+    "work_start_date": ["参加工作时间（入学时间）", "参加工作时间(入学时间)", "参加工作或入学时间", "入学时间", "参加工作时间"],
+    "position_title": ["职务职称", "职务", "职称"],
+    "application_date": ["申请入党时间", "递交入党申请书时间", "入党申请时间", "申请书时间"],
+    "talk_date": ["派入谈话时间", "派人谈话时间", "谈话时间"],
+    "activist_confirm_date": ["党支部研究确定入党积极分子时间", "确定积极分子时间", "积极分子时间", "列为积极分子时间"],
+    "committee_record_date": ["党委备案时间", "党组织备案时间"],
+    "activist_training_date": ["入党积极分子培训时间", "参加积极分子培训时间", "积极分子培训时间"],
+    "cultivator": ["培养联系人", "培养联系人姓名", "联系人"],
+    "development_target_date": ["列为发展对象时间", "发展对象时间"],
+    "development_training_date": ["发展对象培训时间", "发展对象培训"],
+    "pre_member_accept_date": ["党支部党员大会接收预备党员时间", "接收预备党员时间", "成为预备党员时间"],
+    "superior_talk_date": ["上级党组织谈话时间", "上级组织谈话时间"],
+    "superior_talker": ["上级党组织谈话人", "上级组织谈话人", "谈话人"],
+    "general_branch_review_date": ["党总支审议时间", "党总支审批时间"],
+    "superior_party_approval_date": ["上级党委审批时间", "党委审批时间"],
+    "volunteer_book_number": ["志愿书编号", "入党志愿书编号"],
+    "personnel_category": ["人员类别", "人员类型"],
+    "probation_discussion_date": ["预备期支部讨论时间", "支部讨论时间", "转正支部讨论时间"],
+    "regularization_approval_date": ["转正上级党委审批时间", "上级党委转正审批时间", "转正审批时间"],
+    "branch_name": ["所在党支部", "党支部", "支部", "党组织", "branch_name"],
     "note": ["备注", "说明", "note"],
 }
 
@@ -120,24 +193,36 @@ def init_db() -> None:
             CREATE TABLE IF NOT EXISTS party_records (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 identity_type TEXT NOT NULL,
+                sequence_number TEXT DEFAULT '',
                 name TEXT NOT NULL,
-                class_name TEXT DEFAULT '',
                 student_id TEXT DEFAULT '',
                 gender TEXT DEFAULT '',
-                phone TEXT DEFAULT '',
+                ethnicity TEXT DEFAULT '',
+                education TEXT DEFAULT '',
+                birth_date TEXT DEFAULT '',
+                age TEXT DEFAULT '',
+                work_study_unit TEXT DEFAULT '',
+                id_number TEXT DEFAULT '',
+                work_start_date TEXT DEFAULT '',
+                position_title TEXT DEFAULT '',
+                application_date TEXT DEFAULT '',
+                talk_date TEXT DEFAULT '',
+                activist_confirm_date TEXT DEFAULT '',
+                committee_record_date TEXT DEFAULT '',
+                activist_training_date TEXT DEFAULT '',
+                cultivator TEXT DEFAULT '',
+                development_target_date TEXT DEFAULT '',
+                development_training_date TEXT DEFAULT '',
+                pre_member_accept_date TEXT DEFAULT '',
+                superior_talk_date TEXT DEFAULT '',
+                superior_talker TEXT DEFAULT '',
+                general_branch_review_date TEXT DEFAULT '',
+                superior_party_approval_date TEXT DEFAULT '',
+                volunteer_book_number TEXT DEFAULT '',
+                personnel_category TEXT DEFAULT '',
+                probation_discussion_date TEXT DEFAULT '',
+                regularization_approval_date TEXT DEFAULT '',
                 branch_name TEXT DEFAULT '',
-                applicant_date TEXT DEFAULT '',
-                activist_date TEXT DEFAULT '',
-                training_status TEXT DEFAULT '',
-                recommender TEXT DEFAULT '',
-                pre_member_date TEXT DEFAULT '',
-                probation_start_date TEXT DEFAULT '',
-                probation_end_date TEXT DEFAULT '',
-                introducer TEXT DEFAULT '',
-                member_date TEXT DEFAULT '',
-                regularization_date TEXT DEFAULT '',
-                party_position TEXT DEFAULT '',
-                dues_status TEXT DEFAULT '',
                 note TEXT DEFAULT '',
                 extra_values_json TEXT DEFAULT '{}',
                 created_at TEXT NOT NULL,
@@ -159,12 +244,49 @@ def init_db() -> None:
             )
             """
         )
+        existing_columns = {row["name"] for row in conn.execute("PRAGMA table_info(party_records)").fetchall()}
+        for field in ALL_FIELDS:
+            if field != "identity_type" and field not in existing_columns:
+                conn.execute(f"ALTER TABLE party_records ADD COLUMN {field} TEXT DEFAULT ''")
         conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_party_student_unique ON party_records(student_id) WHERE student_id <> ''")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_party_identity ON party_records(identity_type)")
 
 
 def normalize_header(value: Any) -> str:
-    return str(value or "").strip().lower().replace(" ", "").replace("_", "")
+    text = str(value or "").strip().lower()
+    text = text.replace("（", "(").replace("）", ")")
+    return re.sub(r"[\s_()（）【】\\[\\]{}<>《》:：,，、/\\\\\\-]+", "", text)
+
+
+def header_matches(candidate: str, aliases: List[str]) -> bool:
+    normalized_candidate = normalize_header(candidate)
+    if not normalized_candidate:
+        return False
+    for alias in aliases:
+        normalized_alias = normalize_header(alias)
+        if not normalized_alias:
+            continue
+        if normalized_candidate == normalized_alias:
+            return True
+        if len(normalized_alias) >= 3 and normalized_alias in normalized_candidate:
+            return True
+        if len(normalized_candidate) >= 3 and normalized_candidate in normalized_alias:
+            return True
+    return False
+
+
+def header_exact_matches(candidate: str, aliases: List[str]) -> bool:
+    normalized_candidate = normalize_header(candidate)
+    return any(normalized_candidate == normalize_header(alias) for alias in aliases if normalize_header(alias))
+
+
+def find_matching_header(headers: List[str], aliases: List[str], used_headers: set, exact_only: bool = False) -> Optional[str]:
+    for header in headers:
+        if header in used_headers:
+            continue
+        if header_exact_matches(header, aliases) if exact_only else header_matches(header, aliases):
+            return header
+    return None
 
 
 def make_dynamic_key(label: str) -> str:
@@ -236,11 +358,11 @@ def list_records(identity_type: str = "", query: str = "") -> List[Dict[str, Any
         params.append(identity_type)
     if query:
         like = f"%{query}%"
-        clauses.append("(name LIKE ? OR student_id LIKE ? OR class_name LIKE ? OR branch_name LIKE ?)")
+        clauses.append("(name LIKE ? OR student_id LIKE ? OR work_study_unit LIKE ? OR branch_name LIKE ?)")
         params.extend([like] * 4)
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     with get_connection() as conn:
-        rows = conn.execute(f"SELECT * FROM party_records {where} ORDER BY class_name, name, id DESC", params).fetchall()
+        rows = conn.execute(f"SELECT * FROM party_records {where} ORDER BY work_study_unit, name, id DESC", params).fetchall()
     return [row_to_dict(row) for row in rows]
 
 
@@ -324,28 +446,33 @@ def delete_records(record_ids: List[int]) -> int:
 
 
 def build_header_map(headers: List[str], identity_type: str) -> Tuple[Dict[str, str], Dict[str, str]]:
-    normalized_headers = {normalize_header(header): header for header in headers if str(header or "").strip()}
     allowed_fields = set(relevant_fields(identity_type))
     header_map: Dict[str, str] = {}
     used = set()
-    for field, aliases in FIELD_ALIASES.items():
-        if field not in allowed_fields:
+    field_aliases = [
+        (field, aliases + [FIELD_LABELS.get(field, field)])
+        for field, aliases in FIELD_ALIASES.items()
+        if field in allowed_fields
+    ]
+    for field, aliases in field_aliases:
+        original = find_matching_header(headers, aliases, used, exact_only=True)
+        if original is not None:
+            header_map[field] = original
+            used.add(original)
+    for field, aliases in field_aliases:
+        if field in header_map:
             continue
-        for alias in aliases:
-            original = normalized_headers.get(normalize_header(alias))
-            if original is not None:
-                header_map[field] = original
-                used.add(original)
-                break
+        original = find_matching_header(headers, aliases, used)
+        if original is not None:
+            header_map[field] = original
+            used.add(original)
     dynamic_headers = {}
     dynamic_fields = get_fields(identity_type)
     for field in dynamic_fields:
-        for alias in [field["label"], field["field_key"]]:
-            original = normalized_headers.get(normalize_header(alias))
-            if original is not None:
-                dynamic_headers[field["field_key"]] = original
-                used.add(original)
-                break
+        original = find_matching_header(headers, [field["label"], field["field_key"]], used)
+        if original is not None:
+            dynamic_headers[field["field_key"]] = original
+            used.add(original)
     return header_map, dynamic_headers
 
 

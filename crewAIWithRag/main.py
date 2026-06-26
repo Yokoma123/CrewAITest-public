@@ -95,24 +95,36 @@ class DynamicFieldPayload(BaseModel):
 
 class PartyRecordPayload(BaseModel):
     identity_type: str
+    sequence_number: str = ""
     name: str
-    class_name: str = ""
     student_id: str = ""
     gender: str = ""
-    phone: str = ""
+    ethnicity: str = ""
+    education: str = ""
+    birth_date: str = ""
+    age: str = ""
+    work_study_unit: str = ""
+    id_number: str = ""
+    work_start_date: str = ""
+    position_title: str = ""
+    application_date: str = ""
+    talk_date: str = ""
+    activist_confirm_date: str = ""
+    committee_record_date: str = ""
+    activist_training_date: str = ""
+    cultivator: str = ""
+    development_target_date: str = ""
+    development_training_date: str = ""
+    pre_member_accept_date: str = ""
+    superior_talk_date: str = ""
+    superior_talker: str = ""
+    general_branch_review_date: str = ""
+    superior_party_approval_date: str = ""
+    volunteer_book_number: str = ""
+    personnel_category: str = ""
+    probation_discussion_date: str = ""
+    regularization_approval_date: str = ""
     branch_name: str = ""
-    applicant_date: str = ""
-    activist_date: str = ""
-    training_status: str = ""
-    recommender: str = ""
-    pre_member_date: str = ""
-    probation_start_date: str = ""
-    probation_end_date: str = ""
-    introducer: str = ""
-    member_date: str = ""
-    regularization_date: str = ""
-    party_position: str = ""
-    dues_status: str = ""
     note: str = ""
     extra_values: Dict[str, str] = Field(default_factory=dict)
 
@@ -759,7 +771,7 @@ async def index():
 
       <div class="stats" id="party-stats"></div>
       <div class="toolbar">
-        <input id="party-search" placeholder="搜索姓名、学号、班级、党支部" />
+        <input id="party-search" placeholder="搜索姓名、学号、工作或学习单位、党支部" />
         <button id="party-reload" type="button">刷新党团信息</button>
         <button id="party-delete" class="danger" type="button">批量删除选中项</button>
         <label><input id="party-import-file" type="file" accept=".csv,.xlsx,.xls" /></label>
@@ -891,9 +903,9 @@ async def index():
     ];
 
     const partyFieldOrder = {
-      activist: ["name", "class_name", "student_id", "gender", "phone", "branch_name", "applicant_date", "activist_date", "training_status", "recommender", "note"],
-      probationary: ["name", "class_name", "student_id", "gender", "phone", "branch_name", "activist_date", "pre_member_date", "probation_start_date", "probation_end_date", "introducer", "note"],
-      member: ["name", "class_name", "student_id", "gender", "phone", "branch_name", "member_date", "regularization_date", "party_position", "dues_status", "note"]
+      activist: ["sequence_number", "student_id", "name", "gender", "ethnicity", "education", "birth_date", "age", "work_study_unit", "work_start_date", "position_title", "application_date", "talk_date", "activist_confirm_date", "committee_record_date", "activist_training_date", "branch_name", "cultivator"],
+      probationary: ["sequence_number", "name", "student_id", "gender", "ethnicity", "education", "birth_date", "age", "work_study_unit", "id_number", "work_start_date", "position_title", "application_date", "activist_confirm_date", "activist_training_date", "development_target_date", "development_training_date", "pre_member_accept_date", "superior_talk_date", "superior_talker", "general_branch_review_date", "superior_party_approval_date", "volunteer_book_number", "branch_name"],
+      member: ["sequence_number", "name", "student_id", "gender", "ethnicity", "education", "birth_date", "age", "work_study_unit", "id_number", "work_start_date", "personnel_category", "position_title", "application_date", "activist_confirm_date", "activist_training_date", "development_target_date", "development_training_date", "pre_member_accept_date", "superior_party_approval_date", "probation_discussion_date", "regularization_approval_date", "branch_name"]
     };
 
     const message = document.getElementById("message");
