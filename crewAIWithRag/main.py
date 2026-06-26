@@ -7,11 +7,13 @@ from typing import Dict, List, Optional
 
 import uvicorn
 from fastapi import FastAPI, File, HTTPException, Query, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
 
 import export_service
 import import_service
+import log_store
+import party_store
 import student_store
 
 
@@ -64,6 +66,10 @@ class BatchUpdatePayload(BaseModel):
     updates: Dict[str, str]
 
 
+class BatchDeletePayload(BaseModel):
+    student_ids: List[int]
+
+
 class BatchSearchPayload(BaseModel):
     text: str = ""
     terms: List[str] = Field(default_factory=list)
@@ -87,11 +93,48 @@ class DynamicFieldPayload(BaseModel):
     options: List[str] = Field(default_factory=list)
 
 
+class PartyRecordPayload(BaseModel):
+    identity_type: str
+    name: str
+    class_name: str = ""
+    student_id: str = ""
+    gender: str = ""
+    phone: str = ""
+    branch_name: str = ""
+    applicant_date: str = ""
+    activist_date: str = ""
+    training_status: str = ""
+    recommender: str = ""
+    pre_member_date: str = ""
+    probation_start_date: str = ""
+    probation_end_date: str = ""
+    introducer: str = ""
+    member_date: str = ""
+    regularization_date: str = ""
+    party_position: str = ""
+    dues_status: str = ""
+    note: str = ""
+    extra_values: Dict[str, str] = Field(default_factory=dict)
+
+
+class PartyIdentityPayload(BaseModel):
+    identity_type: str
+
+
+class PartyFieldPayload(BaseModel):
+    identity_type: str
+    label: str
+    field_type: str = "text"
+    options: List[str] = Field(default_factory=list)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     os.makedirs(DATA_DIR, exist_ok=True)
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     student_store.init_db()
+    party_store.init_db()
+    log_store.init_db()
     print("学生信息管理与汇总系统已初始化")
     yield
     print("正在关闭学生信息管理与汇总系统...")
@@ -461,6 +504,8 @@ async def index():
         <button class="side-link" data-target-page="detail-page" data-target-panel="records-panel" type="button">奖惩记录</button>
         <button class="side-link" data-target-page="detail-page" data-target-panel="activities-panel" type="button">日常活动</button>
         <button class="side-link" data-target-page="detail-page" data-target-panel="fields-panel" type="button">字段设置</button>
+        <button class="side-link" data-target-page="party-page" type="button">党团信息</button>
+        <button class="side-link" data-target-page="logs-page" type="button">操作日志</button>
         <button id="side-export" type="button">导出</button>
       </nav>
     </aside>
@@ -505,6 +550,10 @@ async def index():
         <section class="chart-panel">
           <h2>去向与活动</h2>
           <div id="destination-chart"></div>
+        </section>
+        <section class="chart-panel">
+          <h2>党团信息</h2>
+          <div id="party-chart"></div>
         </section>
       </div>
     </div>
@@ -552,6 +601,7 @@ async def index():
           </select>
           <span id="batch-value-wrap" style="min-width:180px;"></span>
           <button id="batch-apply" type="button">批量编辑选中项</button>
+          <button id="batch-delete" class="danger" type="button">批量删除选中项</button>
           <button id="toggle-batch-search" type="button">批量查找</button>
           <button id="clear-batch-search" type="button" hidden>退出批量结果</button>
           <span id="selected-count" class="hint">已选择 0 人</span>
@@ -694,6 +744,77 @@ async def index():
       </div>
     </div>
 
+    <div id="party-page" class="page">
+      <section class="home-hero">
+        <div>
+          <h2>党团信息</h2>
+          <p class="hint">党团信息使用独立数据库。积极分子、预备党员、党员三个表格固定字段，额外字段需要在本页手动添加后才能导入和填写。</p>
+        </div>
+        <div class="nav-actions">
+          <button class="party-tab primary" data-party-type="activist" type="button">积极分子</button>
+          <button class="party-tab" data-party-type="probationary" type="button">预备党员</button>
+          <button class="party-tab" data-party-type="member" type="button">党员</button>
+        </div>
+      </section>
+
+      <div class="stats" id="party-stats"></div>
+      <div class="toolbar">
+        <input id="party-search" placeholder="搜索姓名、学号、班级、党支部" />
+        <button id="party-reload" type="button">刷新党团信息</button>
+        <button id="party-delete" class="danger" type="button">批量删除选中项</button>
+        <label><input id="party-import-file" type="file" accept=".csv,.xlsx,.xls" /></label>
+      </div>
+      <div class="layout">
+        <section>
+          <h2 id="party-table-title">积极分子名单</h2>
+          <div class="table-wrap">
+            <table id="party-table">
+              <thead id="party-head"></thead>
+              <tbody id="party-body"></tbody>
+            </table>
+          </div>
+        </section>
+        <section>
+          <h2>身份变更与字段设置</h2>
+          <div class="form-grid">
+            <label>目标身份
+              <select id="party-target-type">
+                <option value="activist">积极分子</option>
+                <option value="probationary">预备党员</option>
+                <option value="member">党员</option>
+              </select>
+            </label>
+            <label>新增字段名<input id="party-new-field-label" placeholder="例如：团支部推优时间" /></label>
+            <label>字段类型
+              <select id="party-new-field-type">
+                <option value="text">文本</option>
+                <option value="select">下拉列表</option>
+              </select>
+            </label>
+            <label>下拉选项<input id="party-new-field-options" placeholder="例如：是、否、暂无" /></label>
+          </div>
+          <div class="actions">
+            <button id="party-change-identity" class="primary" type="button">将选中人员变更身份</button>
+            <button id="party-add-field" type="button">给当前表格添加字段</button>
+          </div>
+          <div id="party-field-list"></div>
+        </section>
+      </div>
+    </div>
+
+    <div id="logs-page" class="page">
+      <section class="home-hero">
+        <div>
+          <h2>操作日志</h2>
+          <p class="hint">系统自动保存近 7 天操作记录，包括导入、删除、批量编辑、党团身份变更等。</p>
+        </div>
+        <div class="nav-actions"><button id="logs-refresh" type="button">刷新日志</button></div>
+      </section>
+      <section>
+        <div id="logs-list"></div>
+      </section>
+    </div>
+
     <dialog id="export-dialog">
       <h2>选择导出内容</h2>
       <p class="hint">默认导出当前筛选条件下的学生信息。学号、姓名、班级默认选中，其余字段可手动勾选。</p>
@@ -724,7 +845,11 @@ async def index():
       batches: [],
       changeOffset: 0,
       changeLimit: 20,
-      changeTotal: 0
+      changeTotal: 0,
+      partyType: "activist",
+      partyRecords: [],
+      partyChecked: new Set(),
+      partyOptions: { identity_types: {}, labels: {}, common_fields: [], category_fields: {}, dynamic_fields: {} }
     };
 
     const fixedFields = [
@@ -764,6 +889,12 @@ async def index():
       ["is_further_study", "是否升学", false],
       ["destination_note", "去向备注", false]
     ];
+
+    const partyFieldOrder = {
+      activist: ["name", "class_name", "student_id", "gender", "phone", "branch_name", "applicant_date", "activist_date", "training_status", "recommender", "note"],
+      probationary: ["name", "class_name", "student_id", "gender", "phone", "branch_name", "activist_date", "pre_member_date", "probation_start_date", "probation_end_date", "introducer", "note"],
+      member: ["name", "class_name", "student_id", "gender", "phone", "branch_name", "member_date", "regularization_date", "party_position", "dues_status", "note"]
+    };
 
     const message = document.getElementById("message");
     const body = document.getElementById("students-body");
@@ -948,7 +1079,8 @@ async def index():
         ["待核对", stats.pending_changes],
         ["奖励", stats.reward_count],
         ["惩罚", stats.punishment_count],
-        ["活动总分", stats.activity_score]
+        ["活动总分", stats.activity_score],
+        ["党团总数", (stats.party || {}).total || 0]
       ];
       document.getElementById("stats").innerHTML = metrics.map(([label, value]) =>
         `<div class="metric"><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span></div>`
@@ -1022,6 +1154,12 @@ async def index():
           <div class="bar-row"><span>活动总分</span><div class="bar-track"><div class="bar-fill" style="--bar-width:${Math.min(Number(stats.activity_score || 0), 100)}%; background:#d97706;"></div></div><strong>${stats.activity_score || 0}</strong></div>
         </div>`;
       renderPieChart("destination-pie", destinationRows, "去向");
+      const partyRows = ((stats.party || {}).rows || []).length
+        ? (stats.party || {}).rows
+        : [{ label: "积极分子", count: 0 }, { label: "预备党员", count: 0 }, { label: "党员", count: 0 }];
+      document.getElementById("party-chart").innerHTML = '<div id="party-pie"></div><div id="party-bars"></div>';
+      renderPieChart("party-pie", partyRows, "党团");
+      renderBarChart("party-bars", partyRows, Math.max((stats.party || {}).total || 0, 1));
     }
 
     async function loadStudents() {
@@ -1434,6 +1572,102 @@ async def index():
       });
     }
 
+    async function loadPartyOptions() {
+      state.partyOptions = await requestJson("/api/party/options");
+      renderPartyFields();
+    }
+
+    async function loadPartyRecords() {
+      const params = new URLSearchParams();
+      params.set("identity_type", state.partyType);
+      const query = document.getElementById("party-search").value.trim();
+      if (query) params.set("query", query);
+      const data = await requestJson("/api/party/records?" + params.toString());
+      state.partyRecords = data.records || [];
+      state.partyChecked.clear();
+      renderPartyRecords();
+    }
+
+    function currentPartyLabel() {
+      return (state.partyOptions.identity_types || {})[state.partyType] || state.partyType;
+    }
+
+    function currentPartyFields() {
+      const dynamic = ((state.partyOptions.dynamic_fields || {})[state.partyType] || []).map((field) => field.field_key);
+      return (partyFieldOrder[state.partyType] || partyFieldOrder.activist).concat(dynamic);
+    }
+
+    function renderPartyStats() {
+      const counts = { activist: 0, probationary: 0, member: 0 };
+      state.partyRecords.forEach((record) => counts[record.identity_type] = (counts[record.identity_type] || 0) + 1);
+      const rows = Object.entries(state.partyOptions.identity_types || {}).map(([key, label]) => [label, key === state.partyType ? state.partyRecords.length : counts[key] || 0]);
+      document.getElementById("party-stats").innerHTML = rows.map(([label, value]) =>
+        `<div class="metric"><strong>${value}</strong><span>${escapeHtml(label)}</span></div>`
+      ).join("");
+    }
+
+    function renderPartyFields() {
+      const container = document.getElementById("party-field-list");
+      const fields = (state.partyOptions.dynamic_fields || {})[state.partyType] || [];
+      container.innerHTML = fields.length
+        ? fields.map((field) => `<div class="dynamic-row"><h3>${escapeHtml(field.label)}</h3><p class="hint">字段类型：${field.field_type === "select" ? "下拉列表" : "文本"}${(field.options || []).length ? "；选项：" + field.options.map(escapeHtml).join("、") : ""}</p></div>`).join("")
+        : '<div class="empty">当前表格暂无手动新增字段</div>';
+    }
+
+    function renderPartyRecords() {
+      const fields = currentPartyFields();
+      const labels = state.partyOptions.labels || {};
+      document.getElementById("party-table-title").textContent = `${currentPartyLabel()}名单`;
+      document.getElementById("party-target-type").value = state.partyType === "activist" ? "probationary" : state.partyType === "probationary" ? "member" : "member";
+      document.getElementById("party-head").innerHTML = `<tr><th><input id="party-check-all" class="row-check" type="checkbox"></th>${fields.map((field) => `<th>${escapeHtml(labels[field] || findPartyDynamicLabel(field) || field)}</th>`).join("")}</tr>`;
+      const body = document.getElementById("party-body");
+      if (!state.partyRecords.length) {
+        body.innerHTML = `<tr><td colspan="${fields.length + 1}"><div class="empty">暂无${currentPartyLabel()}数据，请先导入对应表格</div></td></tr>`;
+      } else {
+        body.innerHTML = state.partyRecords.map((record) => {
+          const cells = fields.map((field) => `<td>${escapeHtml(record[field] ?? (record.extra_values || {})[field] ?? "")}</td>`).join("");
+          return `<tr><td><input class="party-row-check row-check" type="checkbox" data-id="${record.id}" ${state.partyChecked.has(record.id) ? "checked" : ""}></td>${cells}</tr>`;
+        }).join("");
+      }
+      const checkAll = document.getElementById("party-check-all");
+      if (checkAll) {
+        checkAll.addEventListener("change", (event) => {
+          if (event.target.checked) state.partyRecords.forEach((record) => state.partyChecked.add(record.id));
+          else state.partyChecked.clear();
+          renderPartyRecords();
+        });
+      }
+      document.querySelectorAll(".party-row-check").forEach((input) => {
+        input.addEventListener("change", (event) => {
+          const id = Number(event.target.dataset.id);
+          if (event.target.checked) state.partyChecked.add(id);
+          else state.partyChecked.delete(id);
+        });
+      });
+      renderPartyStats();
+      renderPartyFields();
+    }
+
+    function findPartyDynamicLabel(fieldKey) {
+      const fields = (state.partyOptions.dynamic_fields || {})[state.partyType] || [];
+      const field = fields.find((item) => item.field_key === fieldKey);
+      return field ? field.label : "";
+    }
+
+    async function refreshParty() {
+      await loadPartyOptions();
+      await loadPartyRecords();
+      loadStats().catch(() => {});
+    }
+
+    async function loadLogs() {
+      const data = await requestJson("/api/logs");
+      const logs = data.logs || [];
+      document.getElementById("logs-list").innerHTML = logs.length
+        ? logs.map((log) => `<div class="record"><strong>${escapeHtml(log.action)}</strong> <span class="pill">${escapeHtml(log.target)}</span><p class="hint">${escapeHtml(log.detail || "")}</p><p class="hint">${escapeHtml(log.created_at)}</p></div>`).join("")
+        : '<div class="empty">近 7 天暂无操作记录</div>';
+    }
+
     document.querySelectorAll(".tab").forEach((tab) => {
       tab.addEventListener("click", () => {
         if (tab.disabled) {
@@ -1463,7 +1697,11 @@ async def index():
     }
 
     document.querySelectorAll(".side-link").forEach((button) => {
-      button.addEventListener("click", () => activatePage(button.dataset.targetPage, button.dataset.targetPanel || null));
+      button.addEventListener("click", () => {
+        activatePage(button.dataset.targetPage, button.dataset.targetPanel || null);
+        if (button.dataset.targetPage === "party-page") refreshParty().catch((error) => showMessage(error.message, true));
+        if (button.dataset.targetPage === "logs-page") loadLogs().catch((error) => showMessage(error.message, true));
+      });
     });
 
     document.getElementById("student-form").addEventListener("submit", async (event) => {
@@ -1573,6 +1811,20 @@ async def index():
       await refreshAll();
     });
 
+    document.getElementById("batch-delete").addEventListener("click", async () => {
+      if (!state.checked.size) return showMessage("请先勾选学生", true);
+      if (!confirm(`确认删除选中的 ${state.checked.size} 名学生及其相关记录？`)) return;
+      const result = await requestJson("/api/students/batch-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ student_ids: [...state.checked] })
+      });
+      showMessage(`批量删除完成，已删除 ${result.deleted} 人`);
+      state.checked.clear();
+      clearForm();
+      await refreshAll();
+    });
+
     document.getElementById("export").addEventListener("click", () => {
       document.getElementById("export-dialog").showModal();
     });
@@ -1627,6 +1879,76 @@ async def index():
       loadStudents().catch((error) => showMessage(error.message, true));
     });
     document.getElementById("home-refresh").addEventListener("click", () => loadStats().catch((error) => showMessage(error.message, true)));
+    document.querySelectorAll(".party-tab").forEach((button) => {
+      button.addEventListener("click", async () => {
+        state.partyType = button.dataset.partyType;
+        document.querySelectorAll(".party-tab").forEach((item) => item.classList.toggle("primary", item.dataset.partyType === state.partyType));
+        await refreshParty();
+      });
+    });
+    document.getElementById("party-reload").addEventListener("click", () => refreshParty().catch((error) => showMessage(error.message, true)));
+    document.getElementById("party-search").addEventListener("input", () => loadPartyRecords().catch((error) => showMessage(error.message, true)));
+    document.getElementById("party-import-file").addEventListener("change", async (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+      const data = new FormData();
+      data.append("file", file);
+      try {
+        const result = await requestJson(`/api/party/import/${state.partyType}`, { method: "POST", body: data });
+        showMessage(`${currentPartyLabel()}导入完成：导入 ${result.imported} 行，更新 ${result.updated} 行，跳过 ${result.skipped} 行`);
+        await refreshParty();
+      } catch (error) {
+        showMessage(error.message, true);
+      } finally {
+        event.target.value = "";
+      }
+    });
+    document.getElementById("party-change-identity").addEventListener("click", async () => {
+      if (!state.partyChecked.size) return showMessage("请先勾选要变更身份的人员", true);
+      const targetType = document.getElementById("party-target-type").value;
+      if (targetType === state.partyType) return showMessage("目标身份与当前身份相同", true);
+      if (!confirm(`确认将选中的 ${state.partyChecked.size} 人变更为 ${(state.partyOptions.identity_types || {})[targetType] || targetType}？`)) return;
+      for (const id of [...state.partyChecked]) {
+        await requestJson(`/api/party/records/${id}/identity`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ identity_type: targetType })
+        });
+      }
+      showMessage("身份变更完成，人员已从当前表格移入目标身份表格");
+      await refreshParty();
+    });
+    document.getElementById("party-delete").addEventListener("click", async () => {
+      if (!state.partyChecked.size) return showMessage("请先勾选党团信息记录", true);
+      if (!confirm(`确认删除选中的 ${state.partyChecked.size} 条党团信息？`)) return;
+      const result = await requestJson("/api/party/records/batch-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ student_ids: [...state.partyChecked] })
+      });
+      showMessage(`党团信息批量删除完成，已删除 ${result.deleted} 条`);
+      await refreshParty();
+    });
+    document.getElementById("party-add-field").addEventListener("click", async () => {
+      const label = document.getElementById("party-new-field-label").value.trim();
+      if (!label) return showMessage("请先填写要添加的字段名", true);
+      const options = document.getElementById("party-new-field-options").value.split(/[、,，]/).map((value) => value.trim()).filter(Boolean);
+      await requestJson("/api/party/fields", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          identity_type: state.partyType,
+          label,
+          field_type: document.getElementById("party-new-field-type").value,
+          options
+        })
+      });
+      document.getElementById("party-new-field-label").value = "";
+      document.getElementById("party-new-field-options").value = "";
+      showMessage("党团字段已添加，后续导入同名列会自动读取");
+      await refreshParty();
+    });
+    document.getElementById("logs-refresh").addEventListener("click", () => loadLogs().catch((error) => showMessage(error.message, true)));
     ["activity_quantity", "activity_hours", "activity_rule"].forEach((id) => {
       document.getElementById(id).addEventListener("input", updateActivityScore);
       document.getElementById(id).addEventListener("change", updateActivityScore);
@@ -1693,7 +2015,7 @@ async def index():
     });
 
     renderExportFields();
-    refreshAll().catch((error) => showMessage(error.message, true));
+    refreshAll().then(() => Promise.all([refreshParty(), loadLogs()])).catch((error) => showMessage(error.message, true));
   </script>
 </body>
 </html>
@@ -1703,6 +2025,11 @@ async def index():
 @app.get("/health")
 async def health():
     return {"status": "ok", "service": "学生信息管理与汇总"}
+
+
+@app.get("/favicon.ico")
+async def favicon():
+    return Response(status_code=204)
 
 
 @app.get("/api/students")
@@ -1733,7 +2060,9 @@ async def api_get_student(student_id: int):
 @app.post("/api/students")
 async def api_create_student(payload: StudentPayload):
     try:
-        return {"student": student_store.save_student(payload.model_dump())}
+        student = student_store.save_student(payload.model_dump())
+        log_store.add_log("新增学生", "学生资料", f"{student.get('name', '')} {student.get('student_id', '')}")
+        return {"student": student}
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -1743,7 +2072,9 @@ async def api_update_student(student_id: int, payload: StudentPayload):
     try:
         if not student_store.get_student(student_id):
             raise HTTPException(status_code=404, detail="学生不存在")
-        return {"student": student_store.save_student(payload.model_dump(), student_id)}
+        student = student_store.save_student(payload.model_dump(), student_id)
+        log_store.add_log("更新学生", "学生资料", f"{student.get('name', '')} {student.get('student_id', '')}")
+        return {"student": student}
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -1751,13 +2082,16 @@ async def api_update_student(student_id: int, payload: StudentPayload):
 @app.delete("/api/students/{student_id}")
 async def api_delete_student(student_id: int):
     student_store.delete_student(student_id)
+    log_store.add_log("删除学生", "学生资料", f"ID {student_id}")
     return {"deleted": True}
 
 
 @app.post("/api/students/{student_id}/records")
 async def api_add_record(student_id: int, payload: RecordPayload):
     try:
-        return {"record": student_store.add_record(student_id, payload.model_dump())}
+        record = student_store.add_record(student_id, payload.model_dump())
+        log_store.add_log("新增奖惩", "奖惩记录", f"学生ID {student_id} {record.get('title', '')}")
+        return {"record": record}
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -1765,13 +2099,16 @@ async def api_add_record(student_id: int, payload: RecordPayload):
 @app.delete("/api/records/{record_id}")
 async def api_delete_record(record_id: int):
     student_store.delete_record(record_id)
+    log_store.add_log("删除奖惩", "奖惩记录", f"记录ID {record_id}")
     return {"deleted": True}
 
 
 @app.post("/api/students/{student_id}/activities")
 async def api_add_activity(student_id: int, payload: ActivityPayload):
     try:
-        return {"activity": student_store.add_activity(student_id, payload.model_dump())}
+        activity = student_store.add_activity(student_id, payload.model_dump())
+        log_store.add_log("新增日常活动", "日常活动", f"学生ID {student_id} {activity.get('task_name', '')}")
+        return {"activity": activity}
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -1779,6 +2116,7 @@ async def api_add_activity(student_id: int, payload: ActivityPayload):
 @app.delete("/api/activities/{activity_id}")
 async def api_delete_activity(activity_id: int):
     student_store.delete_activity(activity_id)
+    log_store.add_log("删除日常活动", "日常活动", f"活动ID {activity_id}")
     return {"deleted": True}
 
 
@@ -1795,14 +2133,18 @@ async def api_import_students(file: UploadFile = File(...)):
         shutil.copyfileobj(file.file, output)
 
     try:
-        return JSONResponse(content=import_service.import_students(target, file.filename or safe_name))
+        result = import_service.import_students(target, file.filename or safe_name)
+        log_store.add_log("导入学生表", "学生资料", f"{file.filename or safe_name} 导入{result.get('imported', 0)}行")
+        return JSONResponse(content=result)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.get("/api/stats")
 async def api_stats():
-    return student_store.get_stats()
+    stats = student_store.get_stats()
+    stats["party"] = party_store.get_stats()
+    return stats
 
 
 @app.get("/api/options")
@@ -1875,20 +2217,112 @@ async def api_dynamic_field(payload: DynamicFieldPayload):
     field_type = payload.field_type if payload.field_type in {"text", "select"} else "text"
     if not payload.field_key.strip() or not payload.label.strip():
         raise HTTPException(status_code=400, detail="字段标识和字段名不能为空")
-    return {
-        "field": student_store.upsert_dynamic_field(
-            payload.field_key.strip(),
-            payload.label.strip(),
-            field_type,
-            payload.options,
-        )
-    }
+    field = student_store.upsert_dynamic_field(
+        payload.field_key.strip(),
+        payload.label.strip(),
+        field_type,
+        payload.options,
+    )
+    log_store.add_log("保存动态字段", "学生资料", payload.label.strip())
+    return {"field": field}
 
 
 @app.post("/api/batch-update")
 async def api_batch_update(payload: BatchUpdatePayload):
     updated = student_store.batch_update_students(payload.student_ids, payload.updates)
+    log_store.add_log("批量编辑学生", "学生资料", f"更新 {updated} 人")
     return {"updated": updated}
+
+
+@app.post("/api/students/batch-delete")
+async def api_batch_delete_students(payload: BatchDeletePayload):
+    deleted = student_store.batch_delete_students(payload.student_ids)
+    log_store.add_log("批量删除学生", "学生资料", f"删除 {deleted} 人")
+    return {"deleted": deleted}
+
+
+@app.get("/api/party/options")
+async def api_party_options():
+    return {
+        "identity_types": party_store.IDENTITY_TYPES,
+        "labels": party_store.FIELD_LABELS,
+        "common_fields": party_store.COMMON_FIELDS,
+        "category_fields": party_store.CATEGORY_FIELDS,
+        "dynamic_fields": {key: party_store.get_fields(key) for key in party_store.IDENTITY_TYPES},
+    }
+
+
+@app.get("/api/party/records")
+async def api_party_records(identity_type: str = "", query: str = ""):
+    return {"records": party_store.list_records(identity_type, query)}
+
+
+@app.post("/api/party/records")
+async def api_save_party_record(payload: PartyRecordPayload):
+    try:
+        record = party_store.save_record(payload.model_dump())
+        log_store.add_log("保存党团信息", "党团信息", f"{record.get('identity_label', '')} {record.get('name', '')}")
+        return {"record": record}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/party/records/{record_id}/identity")
+async def api_change_party_identity(record_id: int, payload: PartyIdentityPayload):
+    try:
+        record = party_store.change_identity(record_id, payload.identity_type)
+        log_store.add_log("变更党团身份", "党团信息", f"{record.get('name', '')} -> {record.get('identity_label', '')}")
+        return {"record": record}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/party/records/batch-delete")
+async def api_delete_party_records(payload: BatchDeletePayload):
+    deleted = party_store.delete_records(payload.student_ids)
+    log_store.add_log("批量删除党团信息", "党团信息", f"删除 {deleted} 条")
+    return {"deleted": deleted}
+
+
+@app.post("/api/party/fields")
+async def api_party_field(payload: PartyFieldPayload):
+    try:
+        field = party_store.upsert_field(payload.identity_type, payload.label, payload.field_type, payload.options)
+        log_store.add_log("新增党团字段", "党团信息", f"{party_store.IDENTITY_TYPES.get(payload.identity_type, payload.identity_type)} {payload.label}")
+        return {"field": field}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/party/import/{identity_type}")
+async def api_import_party(identity_type: str, file: UploadFile = File(...)):
+    suffix = os.path.splitext(file.filename or "")[1].lower()
+    if suffix not in (".csv", ".xlsx", ".xls"):
+        raise HTTPException(status_code=400, detail="暂只支持 CSV、XLSX、XLS 文件")
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    safe_name = f"party_{uuid.uuid4().hex}{suffix}"
+    target = os.path.join(UPLOAD_DIR, safe_name)
+    with open(target, "wb") as output:
+        shutil.copyfileobj(file.file, output)
+    try:
+        result = party_store.import_records(identity_type, target)
+        log_store.add_log("导入党团表", "党团信息", f"{party_store.IDENTITY_TYPES.get(identity_type, identity_type)} {file.filename or safe_name} 导入{result.get('imported', 0)}行")
+        return JSONResponse(content=result)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/logs")
+async def api_logs(limit: int = 200):
+    return {"logs": log_store.list_logs(limit)}
+
+
+@app.post("/api/reset-all")
+async def api_reset_all():
+    student_store.reset_all()
+    party_store.reset_all()
+    log_store.add_log("清空数据库", "系统", "已清空学生资料库和党团信息库")
+    return {"reset": True}
 
 
 @app.get("/api/export")

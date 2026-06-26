@@ -503,6 +503,32 @@ def delete_student(student_pk: int) -> None:
         conn.execute("DELETE FROM students WHERE id = ?", (student_pk,))
 
 
+def batch_delete_students(student_ids: List[int]) -> int:
+    init_db()
+    ids = [int(item) for item in student_ids if str(item).strip()]
+    if not ids:
+        return 0
+    placeholders = ", ".join(["?"] * len(ids))
+    with get_connection() as conn:
+        cursor = conn.execute(f"DELETE FROM students WHERE id IN ({placeholders})", ids)
+        return int(cursor.rowcount)
+
+
+def reset_all() -> None:
+    init_db()
+    with get_connection() as conn:
+        for table in [
+            "import_changes",
+            "import_batches",
+            "student_extra_values",
+            "dynamic_fields",
+            "daily_activities",
+            "rewards_punishments",
+            "students",
+        ]:
+            conn.execute(f"DELETE FROM {table}")
+
+
 def list_records(student_pk: int) -> List[Dict[str, Any]]:
     init_db()
     with get_connection() as conn:
